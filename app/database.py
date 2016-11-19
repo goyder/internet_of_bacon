@@ -1,5 +1,5 @@
 import sqlite3
-import config
+import config, bt_interface
 import logging
 import time, datetime
 import random
@@ -28,22 +28,28 @@ ch.setFormatter(formatter)
 log.addHandler(fh)
 log.addHandler(ch)
 
-def main(debug=False):
+def main(debug=False, purge=False):
     # Include a debug flag for differing operation.
+    log.info("==================")
+    log.info("Program initiated.")
+    log.info("==================")
     if debug:
         log.debug("*** Debug mode enabled. ***")
+    if purge:
+        log.info("*** Purge mode enabled. ***")
 
     # Connect to the database. Create the table.
     log.info("Establishing connection to database file.")
     try:
         with sqlite3.connect(config.file) as con:
             cur = con.cursor()
-            log.info("Dropping existing table...")
-            cur.execute("DROP TABLE IF EXISTS ProcessDatum")
-            log.info("Creating new table...")
-            cur.execute("CREATE TABLE ProcessDatum(id VARCHAR, value REAL, time DATETIME)")
-            con.commit()
-            log.info("Done.")
+            if purge:
+                log.info("Dropping existing table...")
+                cur.execute("DROP TABLE IF EXISTS ProcessDatum")
+                log.info("Creating new table...")
+                cur.execute("CREATE TABLE ProcessDatum(id VARCHAR, value REAL, time DATETIME)")
+                con.commit()
+                log.info("Done.")
     except sqlite3.OperationalError as e:
         log.error( "Encountered operational error in creation:")
         log.error(e.message)
@@ -58,29 +64,37 @@ def main(debug=False):
     #  - Parse and insert this message.
     try:
         # Periodically poll the connection
+        connected = False
         while True:
+            # Initialise our variables
             message = None
             parsed_message = None
 
-            # TODO: Include the Bluetooth connection here.
+            # Ensure a connection is open.
+            if not connected:
+                if not debug:
+                    connected = bt_interface.connect()
 
-            # Don't connect to the Bluetooth system.
-            if debug:
-                message = get_debug_message()
+            # Retrieve the messages.
+            message = bt_interface.get_readings(debug=debug)
+
+            # If we retrieved something, handle it.
             if message is not None:
-                log.info("Received message:")
-                log.info("'{0}'".format(message))
+                log.debug("Received message:")
+                log.debug("'{0}'".format(message))
 
+                # Parse the message.
                 try:
                     parsed_message = parse_message(message)
                 except ValueError:
                     log.info("Could not parse message. Message ignored.")
 
+                # If we got something useful...
                 if parsed_message is not None:
                     # Write the message
                     with sqlite3.connect(config.file) as con:
                         cur = con.cursor()
-                        log.info("Writing row to dataset:")
+                        log.debug("Writing row to dataset:")
                         log.info("  {0}".format(str(parsed_message)))
                         cur.execute("INSERT INTO ProcessDatum VALUES (?,?,?)", parsed_message)
             time.sleep(1)
@@ -97,19 +111,6 @@ def main(debug=False):
                 """
                                        ):
                     log.debug(row)
-
-
-def get_debug_message():
-    """
-    Generate a generic message, like from the Arduino..
-    :return: Pseudo arduino message.
-    """
-    if random.random() < 0.8:
-        tag_names = ["sensor_1", "sensor_2", "sensor_3"]
-        item = random.choice(tag_names)
-        return "{0},{1}".format(item, random.randrange(0,100))
-    else:
-        return "GARBAGE MESSAGE!"
 
 
 def parse_message(message):
@@ -133,7 +134,9 @@ def parse_message(message):
 if __name__ == "__main__":
     debug = False
     if len(sys.argv) > 1:
-        if sys.argv[1] == "debug" or sys.argv[1] == "d":
+        if "debug" in sys.argv:
             debug = True
+        if "purge" in sys.argv:
+            purge = True
 
-    main(debug=debug)
+    main(debug=debug, purge=purge)
