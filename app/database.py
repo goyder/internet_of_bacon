@@ -5,6 +5,14 @@ import time, datetime
 import random
 import sys
 
+import_error = None
+try:
+    import bluetooth
+except ImportError as e:
+    import_error = e.args[0]
+
+
+
 __author__ = 'Goyder'
 """
 database.py
@@ -33,6 +41,9 @@ def main(debug=False, purge=False):
     log.info("==================")
     log.info("Program initiated.")
     log.info("==================")
+    if import_error:
+        log.error("Encountered following errors during start-up:")
+        log.error("    " + import_error)
     if debug:
         log.debug("*** Debug mode enabled. ***")
     if purge:
@@ -67,36 +78,58 @@ def main(debug=False, purge=False):
         connected = False
         while True:
             # Initialise our variables
-            message = None
+            message = []
             parsed_message = None
 
-            # Ensure a connection is open.
-            if not connected:
-                if not debug:
-                    connected = bt_interface.connect()
+            if debug:
+                message = get_debug_readings()
+            else:
+                # Ensure a connection is open.
+                if not connected:
+                    try:
+                        connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+                        connection.connect((config.bt_addr, config.bt_port))
+                        connection.settimeout(0.5)  # very short timeout for purposes of reading data
+                        connection = connection.make_file()
+                        connected = True
+                    except bluetooth.BluetoothError as e:
+                        log.error("Encountered BluetoothError when attempting to connect:")
+                        log.error(e.args[0])
+                        connected = False
 
-            # Retrieve the messages.
-            message = bt_interface.get_readings(debug=debug)
+                # Read from the connection.
+                if connected:
+                    while True:
+                        try:
+                            message += connection.readline()
+                        except bluetooth.BluetoothError as e:
+                            if e.args[0] == "timed out":
+                                pass
+                            else:
+                                connected = False
+                                connection.close()
 
             # If we retrieved something, handle it.
-            if message is not None:
+            if len(message) > 0:
                 log.debug("Received message:")
                 log.debug("'{0}'".format(message))
 
                 # Parse the message.
-                try:
-                    parsed_message = parse_message(message)
-                except ValueError:
-                    log.info("Could not parse message. Message ignored.")
+                for message_line in message:
+                    try:
+                        parsed_message = parse_message(message_line)
+                    except ValueError:
+                        log.info("Could not parse message. Message ignored.")
 
-                # If we got something useful...
-                if parsed_message is not None:
-                    # Write the message
-                    with sqlite3.connect(config.file) as con:
-                        cur = con.cursor()
-                        log.debug("Writing row to dataset:")
-                        log.info("  {0}".format(str(parsed_message)))
-                        cur.execute("INSERT INTO ProcessDatum VALUES (?,?,?)", parsed_message)
+                    # If we got something useful...
+                    if parsed_message is not None:
+                        # Write the message
+                        with sqlite3.connect(config.file) as con:
+                            cur = con.cursor()
+                            log.debug("Writing row to dataset:")
+                            log.info("  {0}".format(str(parsed_message)))
+                            cur.execute("INSERT INTO ProcessDatum VALUES (?,?,?)", parsed_message)
+                            # We are connecting once per write. That's not right!
             time.sleep(1)
 
     except KeyboardInterrupt:
@@ -129,6 +162,21 @@ def parse_message(message):
     except:
         raise ValueError
 
+
+def get_debug_readings():
+    """
+    Retrieve fake readings from a Bluetooth connection.
+    :return:
+    """
+    readings = []
+    for i in range(random.choice((1,2,3))):
+        if random.random() < 0.8:
+            tag_names = ["sensor_1", "sensor_2", "sensor_3"]
+            item = random.choice(tag_names)
+            readings.append( "{0},{1}".format(item, random.randrange(0,100)))
+        else:
+            readings.append( "GARBAGE MESSAGE!")
+        return readings
 
 # Main entry point for program.
 if __name__ == "__main__":
