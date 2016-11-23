@@ -110,14 +110,15 @@ def main(debug=False, purge=False):
                                 break
                             else:
                                 log.info("Connection was broken.")
-                                log.debug(e.args[0])
+                                log.debug(e)
                                 connected = False
                                 connection.close()
                                 break
                         except IOError as e:
-                            log.info("Connection was broken.")
-                            log.debug(e.args[0])
+                            log.info("Connection was broken - IOError.")
+                            log.debug(e)
                             connected = False
+                            connection.close()
                             break
 
             # If we retrieved something, handle it.
