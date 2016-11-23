@@ -90,7 +90,7 @@ def main(debug=False, purge=False):
                         connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                         connection.connect((config.bt_addr, config.bt_port))
                         connection.settimeout(0.5)  # very short timeout for purposes of reading data
-                        connection = connection.make_file()
+                        connection = connection.makefile()
                         connected = True
                     except bluetooth.BluetoothError as e:
                         log.error("Encountered BluetoothError when attempting to connect:")
@@ -108,6 +108,8 @@ def main(debug=False, purge=False):
                             else:
                                 connected = False
                                 connection.close()
+                        except IOError:
+                            connected = False
 
             # If we retrieved something, handle it.
             if len(message) > 0:
@@ -134,6 +136,8 @@ def main(debug=False, purge=False):
 
     except KeyboardInterrupt:
         log.info("Exited main loop via keyboard interrupt.")
+        if connection:
+            connection.close()
         with sqlite3.connect(config.file) as con:
                 cur = con.cursor()
                 for row in cur.execute("""
@@ -181,6 +185,7 @@ def get_debug_readings():
 # Main entry point for program.
 if __name__ == "__main__":
     debug = False
+    purge = False
     if len(sys.argv) > 1:
         if "debug" in sys.argv:
             debug = True
