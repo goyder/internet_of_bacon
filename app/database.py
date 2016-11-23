@@ -90,7 +90,7 @@ def main(debug=False, purge=False):
                         connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                         connection.connect((config.bt_addr, config.bt_port))
                         connection.settimeout(0.1)  # very short timeout for purposes of reading data
-                        connection.setblocking()
+                        connection.setblocking(True)
                         connection = connection.makefile()
                         connected = True
                         log.info("Successfully made bluetooth connection.")
