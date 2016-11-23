@@ -90,6 +90,7 @@ def main(debug=False, purge=False):
                         connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                         connection.connect((config.bt_addr, config.bt_port))
                         connection.settimeout(0.1)  # very short timeout for purposes of reading data
+                        connection.setblocking()
                         connection = connection.makefile()
                         connected = True
                         log.info("Successfully made bluetooth connection.")
@@ -104,6 +105,8 @@ def main(debug=False, purge=False):
                         try:
                             log.debug("Attempting to read messages...")
                             message += connection.readline()
+                            if len(message) == 1:
+                                break
                         except bluetooth.BluetoothError as e:
                             if e.args[0] == "timed out":
                                 log.debug("Message retrieval complete. Encountered timeout.")
@@ -142,7 +145,6 @@ def main(debug=False, purge=False):
                             log.info("  {0}".format(str(parsed_message)))
                             cur.execute("INSERT INTO ProcessDatum VALUES (?,?,?)", parsed_message)
                             # We are connecting once per write. That's not right!
-            time.sleep(1)
 
     except KeyboardInterrupt:
         log.info("Exited main loop via keyboard interrupt.")
