@@ -109,10 +109,12 @@ def main(debug=False, purge=False):
                                 log.debug("Message retrieval complete. Encountered timeout.")
                             else:
                                 log.info("Connection was broken.")
+                                log.debug(e.args[0])
                                 connected = False
                                 connection.close()
-                        except IOError:
+                        except IOError as e:
                             log.info("Connection was broken.")
+                            log.debug(e.args[0])
                             connected = False
 
             # If we retrieved something, handle it.
