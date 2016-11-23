@@ -107,15 +107,18 @@ def main(debug=False, purge=False):
                         except bluetooth.BluetoothError as e:
                             if e.args[0] == "timed out":
                                 log.debug("Message retrieval complete. Encountered timeout.")
+                                break
                             else:
                                 log.info("Connection was broken.")
                                 log.debug(e.args[0])
                                 connected = False
                                 connection.close()
+                                break
                         except IOError as e:
                             log.info("Connection was broken.")
                             log.debug(e.args[0])
                             connected = False
+                            break
 
             # If we retrieved something, handle it.
             if len(message) > 0:
