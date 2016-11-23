@@ -92,6 +92,7 @@ def main(debug=False, purge=False):
                         connection.settimeout(0.1)  # very short timeout for purposes of reading data
                         connection.setblocking(True)
                         connection = connection.makefile()
+                        connection.flush()
                         connected = True
                         log.info("Successfully made bluetooth connection.")
                     except bluetooth.BluetoothError as e:
