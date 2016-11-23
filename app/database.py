@@ -89,9 +89,10 @@ def main(debug=False, purge=False):
                     try:
                         connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
                         connection.connect((config.bt_addr, config.bt_port))
-                        connection.settimeout(0.5)  # very short timeout for purposes of reading data
+                        connection.settimeout(0.1)  # very short timeout for purposes of reading data
                         connection = connection.makefile()
                         connected = True
+                        log.info("Successfully made bluetooth connection.")
                     except bluetooth.BluetoothError as e:
                         log.error("Encountered BluetoothError when attempting to connect:")
                         log.error(e.args[0])
@@ -101,14 +102,17 @@ def main(debug=False, purge=False):
                 if connected:
                     while True:
                         try:
+                            log.debug("Attempting to read messages...")
                             message += connection.readline()
                         except bluetooth.BluetoothError as e:
                             if e.args[0] == "timed out":
-                                pass
+                                log.debug("Message retrieval complete. Encountered timeout.")
                             else:
+                                log.info("Connection was broken.")
                                 connected = False
                                 connection.close()
                         except IOError:
+                            log.info("Connection was broken.")
                             connected = False
 
             # If we retrieved something, handle it.
