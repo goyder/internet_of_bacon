@@ -104,7 +104,9 @@ def main(debug=False, purge=False):
                     while True:
                         try:
                             log.debug("Attempting to read messages...")
-                            message += connection.readline()
+                            message_line = connection.readline()
+                            log.debug(message_line)
+                            message.append(message_line)
                             if len(message) == 1:
                                 break
                         except bluetooth.BluetoothError as e:
