@@ -1,210 +1,104 @@
 import sqlite3
-import config, bt_interface
-import logging
-import time, datetime
-import random
-import sys
-
-import_error = None
-try:
-    import bluetooth
-except ImportError as e:
-    import_error = e.args[0]
-
-
+import os
 
 __author__ = 'Goyder'
+
 """
 database.py
-Main library to handle:
-- The creation
-- The contact w/
-- The parsing of data
-of the central database of the IOW.
+Module for the database object.
+Accepts data ready for database injection.
+Handles the interaction with database files.
 """
 
-# Establish our log
-log = logging.getLogger("logger")
-log.setLevel(logging.DEBUG)
-fh = logging.FileHandler(config.logfile)
-fh.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-log.addHandler(fh)
-log.addHandler(ch)
+table_definition = {'row_ID': 'INTEGER', 'Time': 'DATETIME', 'Debug': 'INTEGER', 'Value': 'REAL', 'ID': 'VARCHAR'}
+# The database has these columns.
+database_columns = tuple([column for column in table_definition.keys()])
+# In order to accept a dictionary to be written to, it must have these keys.
+input_database_keys = tuple([column for column in database_columns if column != "row_ID"])
 
-def main(debug=False, purge=False):
-    # Include a debug flag for differing operation.
-    log.info("==================")
-    log.info("Program initiated.")
-    log.info("==================")
-    if import_error:
-        log.error("Encountered following errors during start-up:")
-        log.error("    " + import_error)
-    if debug:
-        log.debug("*** Debug mode enabled. ***")
-    if purge:
-        log.info("*** Purge mode enabled. ***")
+class Database(object):
+    """
+    Handles creating and writing data to the database object.
+    """
 
-    # Connect to the database. Create the table.
-    log.info("Establishing connection to database file.")
-    try:
-        with sqlite3.connect(config.file) as con:
-            cur = con.cursor()
-            if purge:
-                log.info("Dropping existing table...")
-                cur.execute("DROP TABLE IF EXISTS ProcessDatum")
-                log.info("Creating new table...")
-                cur.execute("CREATE TABLE ProcessDatum(id VARCHAR, value REAL, time DATETIME)")
-                con.commit()
-                log.info("Done.")
-    except sqlite3.OperationalError as e:
-        log.error( "Encountered operational error in creation:")
-        log.error(e.message)
-    except Exception as e:  # Something generic went bad.
-        log.error("Encountered error in creation:")
-        log.error(e.message)
+    def __init__(self, database_location, overwrite=False):
+        """
+        :param overwrite: If True, the Database should clear and overwrite any database it finds.
+        :return:
+        """
+        self.overwrite = overwrite
+        self.database_location = database_location
 
-    # Main loop for listening.
-    # Needs to:
-    #  - Ensure we're connected to Bluetooth
-    #  - Receive a message
-    #  - Parse and insert this message.
-    try:
-        # Periodically poll the connection
-        connected = False
-        while True:
-            # Initialise our variables
-            message = []
-            parsed_message = None
+    def create_database(self):
+        """
+        Create a database using the information supplied on creation.
+        :return:
+        """
+        # If the database already exists...
+        create_new_database = True
 
-            if debug:
-                message = get_debug_readings()
+        if os.path.exists(self.database_location):
+            if self.database_is_valid() and not self.overwrite:
+                create_new_database = False
+            elif self.overwrite:  # We just totally scrap the file. We could just drop the reference table...
+                self.delete_database()
             else:
-                # Ensure a connection is open.
-                if not connected:
-                    try:
-                        connection = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-                        connection.connect((config.bt_addr, config.bt_port))
-                        connection.settimeout(0.1)  # very short timeout for purposes of reading data
-                        connection.setblocking(True)
-                        connection = connection.makefile()
-                        connection.flush()
-                        connected = True
-                        log.info("Successfully made bluetooth connection.")
-                    except bluetooth.BluetoothError as e:
-                        log.error("Encountered BluetoothError when attempting to connect:")
-                        log.error(e.args[0])
-                        connected = False
+                raise(sqlite3.DatabaseError("Database already exists, but is invalid for writing to."))
 
-                # Read from the connection.
-                if connected:
-                    while True:
-                        try:
-                            log.debug("Attempting to read messages...")
-                            message_line = connection.readline()
-                            log.debug(message_line)
-                            message.append(message_line)
-                            if len(message) == 1:
-                                break
-                        except bluetooth.BluetoothError as e:
-                            if e.args[0] == "timed out":
-                                log.debug("Message retrieval complete. Encountered timeout.")
-                                break
-                            else:
-                                log.info("Connection was broken.")
-                                log.debug(e)
-                                connected = False
-                                connection.close()
-                                break
-                        except IOError as e:
-                            log.info("Connection was broken - IOError.")
-                            log.debug(e)
-                            connected = False
-                            connection.close()
-                            break
+        if create_new_database:
+            database_creation_statement = """
+            CREATE TABLE data(
+                row_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                ID VARCHAR,
+                Time DATETIME,
+                Value REAL,
+                Debug INTEGER
+            );
+            """
+            with sqlite3.connect(self.database_location) as conn:
+                cur = conn.cursor()
+                cur.execute(database_creation_statement)
 
-            # If we retrieved something, handle it.
-            if len(message) > 0:
-                log.debug("Received message:")
-                log.debug("'{0}'".format(message))
+    def database_is_valid(self):
+        """
+        Check if an existing database is valid for these purposes.
+        :return:
+        """
+        with sqlite3.connect(self.database_location) as conn:
+            cur = conn.cursor()
+            try:
+                statement = "PRAGMA table_info(data);"
+                cur = cur.execute(statement)
+                column_info = {column[1]: column[2] for column in cur.fetchall()}
+            except:
+                return False
 
-                # Parse the message.
-                for message_line in message:
-                    try:
-                        parsed_message = parse_message(message_line)
-                    except ValueError:
-                        log.info("Could not parse message. Message ignored.")
+        return column_info == table_definition
 
-                    # If we got something useful...
-                    if parsed_message is not None:
-                        # Write the message
-                        with sqlite3.connect(config.file) as con:
-                            cur = con.cursor()
-                            log.debug("Writing row to dataset:")
-                            log.info("  {0}".format(str(parsed_message)))
-                            cur.execute("INSERT INTO ProcessDatum VALUES (?,?,?)", parsed_message)
-                            # We are connecting once per write. That's not right!
+    def delete_database(self):
+        """
+        Delete a database file.
+        :return:
+        """
+        os.remove(self.database_location)
 
-    except KeyboardInterrupt:
-        log.info("Exited main loop via keyboard interrupt.")
-        if connection:
-            connection.close()
-        with sqlite3.connect(config.file) as con:
-                cur = con.cursor()
-                for row in cur.execute("""
-                SELECT *
-                FROM ProcessDatum
-                ORDER BY time
-                LIMIT 5
-                """
-                                       ):
-                    log.debug(row)
+    def write_to_database(self, value_dictionary):
+        """
+        Write a dictionary of values to the database.
+        :param parseable_dictionary: A dictionary of key-value pairs ready for writing.
+        :return:
+        """
+        # Key question - do we want to validate before attempting to write to the database?
+        with sqlite3.connect(self.database_location) as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO data (ID, Time, Value, Debug) VALUES (?, ?, ?, ?);",
+                (value_dictionary["ID"],
+                 value_dictionary["Time"],
+                 value_dictionary["Value"],
+                 value_dictionary["Debug"]
+                 )
+            )
+            conn.commit()
 
 
-def parse_message(message):
-    """
-    Take the expected message from the Arduino and parse it into a form for SQL insertion.
-    :param message: String in the format "tag, value".
-    :return:
-    """
-    try:
-        components = message.split(",")
-        return (
-            str(components[0]),
-            float(components[1]),
-            datetime.datetime.now(),
-        )
-    except:
-        raise ValueError
-
-
-def get_debug_readings():
-    """
-    Retrieve fake readings from a Bluetooth connection.
-    :return:
-    """
-    readings = []
-    for i in range(random.choice((1,2,3))):
-        if random.random() < 0.8:
-            tag_names = ["sensor_1", "sensor_2", "sensor_3"]
-            item = random.choice(tag_names)
-            readings.append( "{0},{1}".format(item, random.randrange(0,100)))
-        else:
-            readings.append( "GARBAGE MESSAGE!")
-        return readings
-
-# Main entry point for program.
-if __name__ == "__main__":
-    debug = False
-    purge = False
-    if len(sys.argv) > 1:
-        if "debug" in sys.argv:
-            debug = True
-        if "purge" in sys.argv:
-            purge = True
-
-    main(debug=debug, purge=purge)
