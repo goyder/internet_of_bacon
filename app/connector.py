@@ -109,3 +109,9 @@ class SerialConnector(Connector):
         message = message + "\n"
         message = message.encode("ASCII")
         self.serial_connection.write(message)
+
+
+class BluetoothConnector(Connector):
+    """
+    Sub-class for a Bluetooth connector.
+    """

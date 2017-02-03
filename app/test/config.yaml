@@ -1,0 +1,5 @@
+connection_list: [/dev/tty.wchusbserial1410, /dev/tty.wchusbserial1420]
+connection_type: serial
+database_location: test.db
+overwrite: true
+timeout: 1.0
