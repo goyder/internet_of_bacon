@@ -87,7 +87,12 @@ class Monitor(object):
             response = None
             if self.connector.is_connected():
                 message = self.connector.retrieve_data()
-                logger.info("Message: {0}".format(message.strip()))
+                # Thanks to the timeout, we do receive a lot of empty messages.
+                if message is not "":
+                    logger.info("Message: {0}".format(message.strip()))
+                else:
+                    logger.debug("Message: {0}".format(message))
+
                 try:
                     response = self.interpreter.interpret(message)
                     logger.info("Response: {0}".format(response))

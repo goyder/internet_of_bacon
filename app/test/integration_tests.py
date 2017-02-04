@@ -16,6 +16,8 @@ if os.path.exists('/dev/tty.wchusbserial1410'):
     connection_name = "/dev/tty.wchusbserial1410"
 elif os.path.exists('/dev/tty.wchusbserial1420'):
     connection_name = "/dev/tty.wchusbserial1420"
+elif os.path.exists('/dev/ttyUSB0'):
+    connection_name = "/dev/ttyUSB0"
 else:
     connection_name = None
 

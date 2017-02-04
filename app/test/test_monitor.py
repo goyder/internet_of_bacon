@@ -26,7 +26,7 @@ def generate_input_parameter_object_minus_inputs(*args):
         "database_location" : "test.db",
         "overwrite"         : False,
         "timeout"           : 1.0,
-        "connection_list"   : ["/dev/tty.wchusbserial1410", "/dev/tty.wchusbserial1420"]
+        "connection_list"   : ["/dev/tty.wchusbserial1410", "/dev/tty.wchusbserial1420", "/dev/ttyUSB0"]
     }
     for option in args:
         try:
