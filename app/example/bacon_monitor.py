@@ -18,10 +18,10 @@ def main(app_config, logging_config):
     parameters = app.monitor.read_config_yaml(app_config)
 
     monitor = app.monitor.Monitor(parameters)
-    monitor.generate_components()
     logger.info("System running. Ctrl-c to exit program.")
     while True:
         try:
+            monitor.generate_components()
             monitor.run()
         except Exception as e:
             logger.info("Encountered error:")
