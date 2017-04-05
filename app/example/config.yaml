@@ -1,4 +1,4 @@
-connection_list: [/dev/tty.wchusbserial1410, /dev/tty.wchusbserial1420, /dev/ttyUSB0]
+connection_list: [/dev/tty.wchusbserial1410, /dev/tty.wchusbserial1420, /dev/ttyUSB0, /dev/cu.usbserial-AI044CFZ]
 connection_type: serial
 database_location: test.db
 overwrite: false
