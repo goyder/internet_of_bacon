@@ -111,6 +111,41 @@ function createGraph() {
             .attr("stroke", "steelblue")
             .attr("d", line);
 
+        g.append("rect")
+
+	// add legend
+	var color_hash = { 0 : ["Temperature (C)", "steelblue"],
+	                   1 : ["Humidity (%)", "red"]
+	                   }
+
+	var legend = svg.append("g")
+	  .attr("class", "legend")
+	  .attr("x", width - 65)
+	  .attr("y", 50)
+	  .attr("height", 100)
+	  .attr("width", 100);
+
+	legend.selectAll('g').data([1,2])
+      .enter()
+      .append('g')
+      .each(function(d, i) {
+        var g = d3.select(this);
+        g.append("rect")
+          .attr("x", width - 65)
+          .attr("y", i*25 + 19)
+          .attr("width", 10)
+          .attr("height", 10)
+          .style("fill", color_hash[String(i)][1]);
+
+        g.append("text")
+          .attr("x", width - 50)
+          .attr("y", i * 25 + 30)
+          .attr("height",30)
+          .attr("width",100)
+          .style("fill", color_hash[String(i)][1])
+          .text(color_hash[String(i)][0]);
+
+      });
     })
 
 
