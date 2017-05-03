@@ -1,0 +1,33 @@
+/*
+General structure is:
+.main
+    .heading
+    .content
+        #data_presentation
+        #time_selection
+*/
+
+body {
+    font-family: helvetica, arial, sans-serif;
+}
+
+.main {
+    max-width: 768px;
+    margin: auto;
+    text-align: center;
+}
+
+.heading {
+    background-color: #bbb;
+    padding: 20px;
+}
+
+.content {
+
+}
+
+td {
+    padding: 10px;
+    background-color: #bbb;
+}
+

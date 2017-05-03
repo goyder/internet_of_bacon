@@ -148,6 +148,10 @@ function createGraph() {
       });
     })
 
+function fetchdata() {
+
+}
+
 
 
 
