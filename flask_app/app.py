@@ -41,15 +41,23 @@ def hello_world():
     else:
         debug = "false"
 
+    date_range = retrieve_date_range()
+
     return render_template(
         "index.html",
         debug=debug,
+        earliest_date=retrieve_date_range()[0],
+        latest_date=retrieve_date_range()[1]
     )
 
 
 @app.route("/data")
 def return_data():
-    data = retrieve_data()
+    start_date = request.args.get("start_datetime", "0001-01-01+00:00:00")
+    end_date = request.args.get("end_datetime", "2100-01-01+00:00:00")
+    data = retrieve_data(start_date.replace("+"," "), end_date.replace("+"," "))
+    print(start_date)
+    print(end_date)
     data = convert_list_to_csv(data)
     return Response(data)
 
@@ -67,6 +75,20 @@ def retrieve_data(start_datetime="0001-01-01 00:00:00", end_datetime="2100-01-01
         insertion = (start_datetime, end_datetime,)
         cur.execute('SELECT Time, ID, Value FROM data WHERE Time BETWEEN datetime( ? ) AND datetime(?)', insertion)
     return cur.fetchall()
+
+def retrieve_date_range():
+    """
+    Retrieve the earliest and latest dates in the dataset.
+    :return: Dates as a tuple.
+    Open question - what happenes if there is nothing in the dataset?
+    """
+
+    with sqlite3.connect(config.DATABASE_LOCATION) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT min(Time), max(TIME) FROM data WHERE debug = 0")
+    # Needs to be returned in Javascript style - so square brackets, and double quotes
+    return list(cur.fetchall()[0])
+
 
 def convert_list_to_csv(list):
     """
